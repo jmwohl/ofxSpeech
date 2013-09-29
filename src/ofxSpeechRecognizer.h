@@ -21,6 +21,7 @@
 #include "ofEvents.h"
 //-- Short function to clean up the detected string
 void cleanUpString(std::string &stringToClean);
+void cleanUpString(std::string &stringToClean, int len);
 
 class ofxSpeechRecognizer
 {
@@ -28,14 +29,20 @@ class ofxSpeechRecognizer
         ofxSpeechRecognizer();
         ~ofxSpeechRecognizer();
         //-- Initializes the speech recognition system
-        void initRecognizer();
-        
+        void initRecognizer(OSType source);
+    
+        void initRecognizerFromFileSource();
+    
+        void initRecognizerFromLiveInputSource();
+    
         //-- loads a list of words that you want the system to recognizer
         void loadDictionary(const std::vector<std::string> &wordsToRecognize);
         
         //-- same as above, but it loads the words from a textfile in your data directory
         void loadDictionaryFromFile(std::string dictionaryFilename);
-        
+    
+        void loadAudioFile(std::string audioFilename);
+    
         //-- tells the recognition system to start listening for words
         void startListening();
         

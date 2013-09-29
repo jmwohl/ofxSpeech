@@ -27,6 +27,22 @@ void cleanUpString(std::string &stringToClean)
 }
 
 /*
+ * Removes leading space from stringToClean and sets the string to the passed in length
+ */
+void cleanUpString(std::string &stringToClean, int len)
+{
+    if(!stringToClean.empty())
+    {
+        int firstCharacter      = stringToClean.find_first_not_of(" ");
+        std::string tempString  = stringToClean;
+        stringToClean.erase();
+        
+        stringToClean           = tempString.substr(firstCharacter, len);
+    }
+    
+}
+
+/*
  * Instantiates an ofxSpeechRecognizer object and sets listening to false
  */
 ofxSpeechRecognizer::ofxSpeechRecognizer()
@@ -47,8 +63,17 @@ ofxSpeechRecognizer::~ofxSpeechRecognizer()
  * a recognizer, settting listening parameters, selecting a speech source (for 
  * now just the microphone), and installing an event handler for OSX speech 
  * event.
+ *
+ * Source types:
+ * enum {
+ *      kSRDefaultSpeechSource = 0,
+ *      kSRLiveDesktopSpeechSource = 'dklv',
+ *      kSRCanned22kHzSpeechSource = 'ca22'
+ * };
+ *
+ * @param source The source for the recognizer
  */
-void ofxSpeechRecognizer::initRecognizer()
+void ofxSpeechRecognizer::initRecognizer(OSType source)
 {
     OSErr errorStatus;
     
@@ -68,8 +93,22 @@ void ofxSpeechRecognizer::initRecognizer()
     //-- Create a recognizer that uses the default speech source (microphone)
     if(!errorStatus)
     {
-        errorStatus = SRNewRecognizer(recognitionSystem, &speechRecognizer, kSRDefaultSpeechSource);
+        errorStatus = SRNewRecognizer(recognitionSystem, &speechRecognizer, source);
     }
+}
+
+/*
+ * Init recognizer with source kSRCanned22kHzSpeechSource
+ */
+void ofxSpeechRecognizer::initRecognizerFromFileSource() {
+    initRecognizer(kSRCanned22kHzSpeechSource);
+}
+
+/*
+ * Init recognizer with source kSRDefaultSpeechSource
+ */
+void ofxSpeechRecognizer::initRecognizerFromLiveInputSource() {
+    initRecognizer(kSRDefaultSpeechSource);
 }
 
 /*
@@ -105,11 +144,13 @@ void ofxSpeechRecognizer::loadDictionary(const std::vector<std::string> &wordsTo
         //-- If there's an error adding the words, release the language model
         if(errorStatus)
         {
+            cout << "early error" << endl;
             SRReleaseObject(speechLanguageModel);
         }
         //-- else set the language model in the system and release model
         else
         {
+            cout << "no early err" << endl;
             errorStatus = SRSetLanguageModel(speechRecognizer, speechLanguageModel);
             SRReleaseObject(speechLanguageModel);
         }
@@ -142,6 +183,52 @@ void ofxSpeechRecognizer::loadDictionaryFromFile(std::string dictionaryFilename)
      * Something to consider.
      */
     loadDictionary(dictionary);
+}
+
+
+void ofxSpeechRecognizer::loadAudioFile(std::string audioFilename) {
+    OSErr err = 0;
+    
+    audioFilename = ofToDataPath(audioFilename);
+    ofFile audioFile = ofFile(audioFilename);
+    audioFilename = audioFile.getAbsolutePath();
+    const char *filePath = "/Volumes/Big Bro/Users/jon/OF/0.8.0/apps/myApps/VoiceToTextTest/bin/data/Text.aiff";
+    
+    cout << audioFilename.c_str() << endl;
+    
+    Size len = audioFile.getSize();
+    
+    FSRef ref;
+    FSSpec fsspec;
+    OSStatus os_status = FSPathMakeRef((UInt8 *)filePath, &ref, NULL);
+    SRSpeechObject tempObj;
+    
+    long count;
+    
+//    err = SRCountItems(*so, &count);
+    
+    if (!err) {
+        cout << count << endl;
+    }
+    
+    
+    if (os_status == noErr) {
+        cout << "Success" << endl;
+        err = FSGetCatalogInfo (&ref, kFSCatInfoNone, NULL, NULL, &fsspec, NULL);
+        if (!err) {
+            cout << "no error here ... " << endl;
+        }
+    }
+    
+    
+    err = SRSetProperty(speechRecognizer, kSRReadAudioFSSpec, &fsspec, sizeof(fsspec));
+    
+    if(!err)
+    {
+        cout << "no error!" << endl;
+    } else {
+        cout << "error." << endl;
+    }
 }
 
 /*
@@ -206,7 +293,7 @@ pascal OSErr ofxSpeechRecognizer::handleSpeechDone(const AppleEvent *theAEevt, A
     if(!errorStatus)
     {
         len = MAX_RECOGNITION_LEN - 1;
-        errorStatus = SRGetProperty(recognitionResult, kSRTEXTFormat, resultStr, &len);
+        errorStatus = SRGetProperty(recognitionResult, kSRTEXTFormat, &resultStr, &len);
         
         if(!errorStatus)
         {
@@ -220,7 +307,7 @@ pascal OSErr ofxSpeechRecognizer::handleSpeechDone(const AppleEvent *theAEevt, A
              * in length, we want to strip out any leading or trailing blank space so 
              * that we can compare it easily in the event handler inside of testApp
              */
-            cleanUpString(wordRecognized);
+            cleanUpString(wordRecognized, len);
             
             //-- Notify our speechRecognizedEvent listeners.
             ofNotifyEvent(speechRecognizedEvent, wordRecognized);
